@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>60-Second Power Check — NightShift Electrician</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800;900&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0E1428;
+    --panel:#1A2340;
+    --panel-2:#212B4E;
+    --panel-line:#2A3560;
+    --amber:#FFB648;
+    --copper:#C97A3D;
+    --text:#EDEFF5;
+    --muted:#94A0C2;
+    --muted-2:#6B7599;
+    --danger:#FF6B5E;
+    --safe:#6FCF97;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--ink);
+    color:var(--text);
+    font-family:'IBM Plex Sans', sans-serif;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    display:flex;
+    justify-content:center;
+    padding:32px 16px;
+  }
+  .display{font-family:'Archivo', sans-serif; font-weight:900; letter-spacing:-0.01em;}
+  .mono{font-family:'IBM Plex Mono', monospace;}
+
+  /* ===== Widget shell ===== */
+  #pcw{
+    width:100%; max-width:460px;
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:18px;
+    overflow:hidden;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,0.5);
+  }
+  .pcw-head{
+    padding:20px 22px 16px;
+    border-bottom:1px solid var(--panel-line);
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+  }
+  .pcw-brand{display:flex; align-items:center; gap:9px;}
+  .pcw-mark{width:24px; height:24px; flex-shrink:0;}
+  .pcw-title{font-size:14px; font-weight:600; letter-spacing:-0.01em;}
+  .pcw-title .amber{color:var(--amber);}
+  .pcw-restart{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--muted-2);
+    background:none; border:1px solid var(--panel-line); border-radius:999px;
+    padding:5px 11px; cursor:pointer; white-space:nowrap;
+  }
+  .pcw-restart:hover{color:var(--text); border-color:var(--muted-2);}
+
+  .pcw-progress{display:flex; gap:5px; padding:14px 22px 0;}
+  .pcw-progress .seg{height:3px; flex:1; background:var(--panel-line); border-radius:3px; overflow:hidden;}
+  .pcw-progress .seg > i{display:block; height:100%; width:0%; background:var(--amber); transition:width .3s ease;}
+  .pcw-progress .seg.done > i{width:100%;}
+  .pcw-progress .seg.active > i{width:60%;}
+
+  .pcw-body{padding:26px 22px 24px; min-height:220px;}
+
+  .pcw-eyebrow{
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--copper);
+    text-transform:uppercase; letter-spacing:0.07em; margin-bottom:10px; display:block;
+  }
+  .pcw-eyebrow.danger{color:var(--danger);}
+  .pcw-eyebrow.safe{color:var(--safe);}
+  .pcw-q{font-size:21px; line-height:1.28; margin-bottom:6px;}
+  .pcw-sub{color:var(--muted); font-size:14px; margin-bottom:20px;}
+
+  .pcw-options{display:flex; flex-direction:column; gap:9px;}
+  .pcw-opt{
+    text-align:left;
+    background:var(--panel-2);
+    border:1px solid var(--panel-line);
+    color:var(--text);
+    font-family:inherit; font-size:15px; font-weight:500;
+    padding:13px 16px; border-radius:11px;
+    cursor:pointer;
+    display:flex; align-items:center; gap:11px;
+    transition:border-color .15s ease, background .15s ease, transform .1s ease;
+  }
+  .pcw-opt:hover{border-color:var(--amber); background:#25305A;}
+  .pcw-opt:active{transform:scale(0.98);}
+  .pcw-opt .ic{font-size:18px; flex-shrink:0; width:22px; text-align:center;}
+  .pcw-opt.danger-opt{border-color:rgba(255,107,94,0.35);}
+  .pcw-opt.danger-opt:hover{border-color:var(--danger); background:rgba(255,107,94,0.08);}
+
+  .pcw-back{
+    margin-top:18px; background:none; border:none; color:var(--muted-2);
+    font-family:'IBM Plex Mono', monospace; font-size:12px; cursor:pointer;
+    padding:4px 0;
+  }
+  .pcw-back:hover{color:var(--muted);}
+
+  /* form inputs (qualify step) */
+  .pcw-field{margin-bottom:14px;}
+  .pcw-field label{display:block; font-size:12.5px; color:var(--muted); margin-bottom:6px;}
+  .pcw-field select, .pcw-field input{
+    width:100%; background:var(--panel-2); border:1px solid var(--panel-line);
+    color:var(--text); font-family:inherit; font-size:15px; padding:11px 13px; border-radius:10px;
+  }
+  .pcw-field select:focus, .pcw-field input:focus{outline:none; border-color:var(--amber);}
+  .pcw-submit{
+    width:100%; margin-top:6px;
+    background:var(--amber); color:#1A1204; font-weight:700; font-size:15px;
+    border:none; padding:13px; border-radius:10px; cursor:pointer;
+  }
+  .pcw-submit:hover{filter:brightness(1.05);}
+
+  /* result */
+  .pcw-badge{
+    display:inline-flex; align-items:center; gap:7px;
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px;
+    border-radius:999px; padding:6px 13px; margin-bottom:16px;
+    background:rgba(255,182,72,0.12); color:var(--amber); border:1px solid rgba(255,182,72,0.3);
+  }
+  .pcw-badge.danger{background:rgba(255,107,94,0.12); color:var(--danger); border-color:rgba(255,107,94,0.35);}
+  .pcw-badge.safe{background:rgba(111,207,151,0.12); color:var(--safe); border-color:rgba(111,207,151,0.35);}
+  .pcw-badge .dot{width:6px; height:6px; border-radius:50%; background:currentColor;}
+
+  .pcw-result-title{font-size:20px; margin-bottom:10px; line-height:1.3;}
+  .pcw-result-body{color:var(--muted); font-size:14.5px; margin-bottom:8px;}
+  .pcw-result-body strong{color:var(--text); font-weight:600;}
+  .pcw-fee-note{
+    font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:var(--muted-2);
+    margin:14px 0 18px; padding:10px 13px; background:var(--panel-2); border-radius:9px;
+    border:1px solid var(--panel-line);
+  }
+  .pcw-ctas{display:flex; flex-direction:column; gap:9px; margin-top:6px;}
+  .pcw-cta-primary, .pcw-cta-secondary{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    text-decoration:none; font-weight:700; font-size:15px;
+    padding:14px; border-radius:11px; text-align:center;
+  }
+  .pcw-cta-primary{background:var(--amber); color:#1A1204;}
+  .pcw-cta-primary.danger{background:var(--danger); color:#2A0A06;}
+  .pcw-cta-primary:hover{filter:brightness(1.05);}
+  .pcw-cta-secondary{border:1px solid var(--panel-line); color:var(--text); font-weight:600;}
+  .pcw-cta-secondary:hover{border-color:var(--muted-2);}
+  .pcw-external-link{color:var(--amber); text-decoration:underline;}
+
+  .pcw-foot{
+    padding:13px 22px; border-top:1px solid var(--panel-line);
+    font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--muted-2);
+    text-align:center;
+  }
+</style>
+</head>
+<body>
+
+<div id="pcw">
+  <div class="pcw-head">
+    <div class="pcw-brand">
+      <svg class="pcw-mark" viewBox="0 0 124 124" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="62" cy="62" r="60" fill="#1A2340" stroke="#2A3560"/>
+        <path d="M 42,20 A 42,42 0 1 0 42,104 A 32,32 0 1 1 42,20 Z" fill="#FFB648"/>
+        <path d="M 68,32 L 40,68 L 58,68 L 48,96 L 88,52 L 66,52 Z" fill="#C97A3D"/>
+      </svg>
+      <span class="pcw-title">60-Second <span class="amber">Power Check</span></span>
+    </div>
+    <button class="pcw-restart" id="pcwRestart">Start over</button>
+  </div>
+  <div class="pcw-progress" id="pcwProgress"></div>
+  <div class="pcw-body" id="pcwBody"></div>
+  <div class="pcw-foot">Not a substitute for calling SCDF on 995 if anyone is in danger.</div>
+</div>
+
+<script>
+(function(){
+  var PHONE_DISPLAY = "+65 8159 0208";
+  var PHONE_TEL = "+6581590208";
+  var WA_NUMBER = "6581590208";
+  var FEE = "S$185";
+
+  var body = document.getElementById('pcwBody');
+  var progressEl = document.getElementById('pcwProgress');
+  var history = [];
+  var answers = {};
+
+  function waLink(text){
+    return "https://wa.me/" + WA_NUMBER + "?text=" + encodeURIComponent(text);
+  }
+  function telLink(){ return "tel:" + PHONE_TEL; }
+
+  function renderProgress(step){
+    var total = 3;
+    var pos = {start:0, q2:1, q3:2, qualify:2, result:3}[step];
+    if (pos === undefined) pos = 0;
+    progressEl.innerHTML = "";
+    for (var i=0;i<total;i++){
+      var seg = document.createElement('div');
+      seg.className = 'seg' + (i < pos ? ' done' : (i === pos ? ' active' : ''));
+      seg.innerHTML = '<i></i>';
+      progressEl.appendChild(seg);
+    }
+  }
+
+  function go(step, opts){
+    history.push(step);
+    render(step, opts || {});
+  }
+  function back(){
+    history.pop();
+    var prev = history.pop() || 'start';
+    render(prev, {});
+  }
+
+  function optionsHTML(list){
+    return list.map(function(o, i){
+      return '<button class="pcw-opt' + (o.danger ? ' danger-opt' : '') + '" data-i="' + i + '">' +
+        '<span class="ic">' + o.icon + '</span><span>' + o.label + '</span></button>';
+    }).join('');
+  }
+
+  function bindOptions(list){
+    var btns = body.querySelectorAll('.pcw-opt');
+    btns.forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var idx = parseInt(btn.getAttribute('data-i'), 10);
+        list[idx].action();
+      });
+    });
+  }
+
+  function screen(html, backable){
+    body.innerHTML = html;
+    if (backable !== false && history.length > 1){
+      var b = document.createElement('button');
+      b.className = 'pcw-back';
+      b.textContent = '← Back';
+      b.addEventListener('click', back);
+      body.appendChild(b);
+    }
+  }
+
+  // ---------- STEP: start ----------
+  function stepStart(){
+    renderProgress('start');
+    var opts = [
+      {icon:'🔥', label:'Sparks, smoke, or a burning smell', danger:true, action:function(){ go('result', {kind:'safety'}); }},
+      {icon:'🏘️', label:'Whole home dark — neighbours too', action:function(){ go('result', {kind:'estate'}); }},
+      {icon:'🏠', label:'Whole home dark, neighbours seem fine', action:function(){ go('q2', {kind:'wholeUnit'}); }},
+      {icon:'🛗', label:'Common area out (corridor, lift, riser)', action:function(){ go('result', {kind:'mcst'}); }},
+      {icon:'🔌', label:'Just one appliance or socket', action:function(){ go('q2', {kind:'appliance'}); }},
+      {icon:'⚡', label:'A breaker keeps tripping / won\'t reset', action:function(){ go('qualify', {kind:'standard'}); }}
+    ];
+    screen(
+      '<span class="pcw-eyebrow">Step 1 of 3</span>' +
+      '<div class="pcw-q display">What\'s happening right now?</div>' +
+      '<div class="pcw-sub">Pick the one that\'s closest — we\'ll ask one or two follow-ups.</div>' +
+      '<div class="pcw-options">' + optionsHTML(opts) + '</div>',
+      false
+    );
+    bindOptions(opts);
+  }
+
+  // ---------- STEP: q2 (branches) ----------
+  function stepQ2(ctx){
+    renderProgress('q2');
+    if (ctx.kind === 'wholeUnit'){
+      var opts = [
+        {icon:'✅', label:'All switches are up / on', action:function(){ go('result', {kind:'externalSupply'}); }},
+        {icon:'⬇️', label:'One or more are flipped down', action:function(){ go('qualify', {kind:'standard'}); }},
+        {icon:'🤷', label:'Not sure / can\'t check safely', action:function(){ go('qualify', {kind:'standard'}); }}
+      ];
+      screen(
+        '<span class="pcw-eyebrow">Step 2 of 3</span>' +
+        '<div class="pcw-q display">Take a look at your DB box (the switch panel).</div>' +
+        '<div class="pcw-sub">Are all the breaker switches up, or is one tripped?</div>' +
+        '<div class="pcw-options">' + optionsHTML(opts) + '</div>'
+      );
+      bindOptions(opts);
+      return;
+    }
+    if (ctx.kind === 'appliance'){
+      var opts2 = [
+        {icon:'🔁', label:'Yes — still doesn\'t work there either', action:function(){ go('result', {kind:'applianceFault'}); }},
+        {icon:'✨', label:'Yes — it works fine in the other spot', action:function(){ go('result', {kind:'applianceFault'}); }},
+        {icon:'⚠️', label:'Yes — the new socket trips too', action:function(){ go('qualify', {kind:'standard'}); }},
+        {icon:'❌', label:'Haven\'t tried that yet', action:function(){ go('q3', {kind:'applianceTry'}); }}
+      ];
+      screen(
+        '<span class="pcw-eyebrow">Step 2 of 3</span>' +
+        '<div class="pcw-q display">Have you tried it in a different power point?</div>' +
+        '<div class="pcw-sub">This tells us if it\'s the appliance or the wiring.</div>' +
+        '<div class="pcw-options">' + optionsHTML(opts2) + '</div>'
+      );
+      bindOptions(opts2);
+      return;
+    }
+  }
+
+  // ---------- STEP: q3 ----------
+  function stepQ3(ctx){
+    renderProgress('q3');
+    if (ctx.kind === 'applianceTry'){
+      screen(
+        '<span class="pcw-eyebrow">Quick test</span>' +
+        '<div class="pcw-q display">Go ahead and try a different socket now.</div>' +
+        '<div class="pcw-sub">We\'ll wait. Tap what happened.</div>' +
+        '<div class="pcw-options" id="pcwQ3opts"></div>'
+      );
+      var opts = [
+        {icon:'✨', label:'Works fine in the other socket', action:function(){ go('result', {kind:'applianceFault'}); }},
+        {icon:'🔁', label:'Still doesn\'t work there either', action:function(){ go('result', {kind:'applianceFault'}); }},
+        {icon:'⚠️', label:'The new socket trips too', action:function(){ go('qualify', {kind:'standard'}); }}
+      ];
+      document.getElementById('pcwQ3opts').innerHTML = optionsHTML(opts);
+      bindOptions(opts);
+    }
+  }
+
+  // ---------- STEP: qualify (property info before WhatsApp) ----------
+  function stepQualify(ctx){
+    renderProgress('qualify');
+    screen(
+      '<span class="pcw-eyebrow">Last step</span>' +
+      '<div class="pcw-q display">A couple of details, then we\'ll route you.</div>' +
+      '<div class="pcw-sub">Helps the electrician come prepared.</div>' +
+      '<div class="pcw-field">' +
+        '<label>Property type</label>' +
+        '<select id="pcwProp">' +
+          '<option value="HDB flat">HDB flat</option>' +
+          '<option value="EC / Condo">EC / Condo</option>' +
+          '<option value="Landed house">Landed house</option>' +
+          '<option value="Commercial unit">Commercial unit</option>' +
+        '</select>' +
+      '</div>' +
+      '<div class="pcw-field">' +
+        '<label>Postal code (optional)</label>' +
+        '<input type="text" id="pcwPostal" placeholder="e.g. 560123" inputmode="numeric" maxlength="6">' +
+      '</div>' +
+      '<button class="pcw-submit" id="pcwQualifySubmit">See what to do next →</button>'
+    );
+    document.getElementById('pcwQualifySubmit').addEventListener('click', function(){
+      answers.property = document.getElementById('pcwProp').value;
+      answers.postal = document.getElementById('pcwPostal').value.trim();
+      go('result', {kind: ctx.kind, property: answers.property, postal: answers.postal});
+    });
+  }
+
+  // ---------- RESULT screens ----------
+  var RESULTS = {
+    safety: function(){
+      return {
+        badgeClass: 'danger',
+        badgeText: '⛔ Safety emergency',
+        title: 'Stop — don\'t touch anything near it.',
+        body: 'If you can do it without going near the fault, switch off the main breaker at your DB box. If there\'s active fire or anyone\'s in danger, call <strong>995</strong> first.<br><br>Otherwise, this needs an electrician right now.',
+        fee: 'Call-out is ' + FEE + ' flat — quoted before we hang up, no surprises.',
+        primary: {label: '📞 Call now — ' + PHONE_DISPLAY, href: telLink(), danger:true},
+        secondary: {label: 'Message on WhatsApp instead', href: waLink('URGENT — sparks/smoke/burning smell, need an electrician now.')}
+      };
+    },
+    estate: function(){
+      return {
+        badgeClass: 'safe',
+        badgeText: '✅ No dispatch needed',
+        title: 'Sounds like an estate-wide outage.',
+        body: 'If your neighbours have lost power too, this is on SP Group\'s side, not your home wiring. Call their 24/7 hotline — they handle it directly.',
+        fee: 'This one\'s free — no call-out charge, because there\'s nothing on your end to fix.',
+        primary: {label: '📞 Call SP Group — 1800 778 8888', href: 'tel:+18007788888'},
+        secondary: {label: 'Still want us to double-check your unit?', href: '#', onClick:function(){ go('q2', {kind:'wholeUnit'}); }}
+      };
+    },
+    mcst: function(){
+      return {
+        badgeClass: 'safe',
+        badgeText: '✅ Not your unit\'s wiring',
+        title: 'That\'s common property — Town Council / MCST territory.',
+        body: 'Corridors, lifts, and risers are maintained by your Town Council or MCST, not your household. They\'re the ones who can fix or authorise work there.',
+        fee: 'No charge for this — we just wouldn\'t be the right ones to call for common property.',
+        primary: {label: 'Message us if you want help finding the right contact', href: waLink('Hi — common area (corridor/lift/riser) has a power issue. Can you point me to who to call?')},
+        secondary: {label: 'Actually, my own unit is affected too', href: '#', onClick:function(){ go('start', {}); }}
+      };
+    },
+    externalSupply: function(ctx){
+      var msg = 'Hi — whole unit is without power, neighbours seem fine, all my DB switches are up. ';
+      if (ctx.property) msg += 'Property: ' + ctx.property + '. ';
+      if (ctx.postal) msg += 'Postal code: ' + ctx.postal + '. ';
+      return {
+        badgeClass: 'safe',
+        badgeText: '💡 Try this first',
+        title: 'Check your SP meter compartment.',
+        body: 'If all your DB breakers are up but you\'ve still got no power, it\'s sometimes a tripped main switch or blown fuse in the meter compartment outside your unit. Worth a look before booking a visit.',
+        fee: 'Free advice. If it\'s still dark after checking, ' + FEE + ' flat covers a full diagnosis and fix where possible.',
+        primary: {label: 'Still dark? Message us on WhatsApp', href: waLink(msg + 'Checked the meter compartment, still no power.')},
+        secondary: {label: 'Call instead — ' + PHONE_DISPLAY, href: telLink()}
+      };
+    },
+    applianceFault: function(ctx){
+      var msg = 'Hi — think it might be an appliance fault, not the wiring. Tested it in a different socket. ';
+      return {
+        badgeClass: 'safe',
+        badgeText: '💡 Likely the appliance, not your wiring',
+        title: 'Sounds like the appliance itself.',
+        body: 'Since the socket test pointed to the appliance rather than the wiring, this probably isn\'t an electrical fault in your home — worth checking the appliance or its plug/fuse first.',
+        fee: 'No charge for this advice. If you\'d still like a second opinion on-site, the usual ' + FEE + ' visit fee applies.',
+        primary: {label: 'Want us to confirm anyway? Message us', href: waLink(msg)},
+        secondary: {label: 'Call instead — ' + PHONE_DISPLAY, href: telLink()}
+      };
+    },
+    standard: function(ctx){
+      var msg = 'Hi — need an electrician. ';
+      if (ctx.property) msg += 'Property: ' + ctx.property + '. ';
+      if (ctx.postal) msg += 'Postal code: ' + ctx.postal + '. ';
+      msg += 'Symptom: breaker tripped / won\'t reset or a circuit fault.';
+      return {
+        badgeClass: 'default',
+        badgeText: '🔧 Worth a proper look',
+        title: 'This sounds like a standard electrical fault.',
+        body: 'A tripping or unresponsive breaker usually means a real fault on that circuit — not something to keep resetting blind. An EMA-licensed electrician can diagnose and, where it\'s safe, fix it the same visit.',
+        fee: FEE + ' flat covers the visit, full diagnosis, and the fix if it\'s a simple isolation. Anything bigger is quoted before it starts.',
+        primary: {label: '💬 Message us on WhatsApp', href: waLink(msg)},
+        secondary: {label: 'Call instead — ' + PHONE_DISPLAY, href: telLink()}
+      };
+    }
+  };
+
+  function stepResult(ctx){
+    renderProgress('result');
+    var r = RESULTS[ctx.kind](ctx);
+    var badgeCls = r.badgeClass === 'default' ? '' : (' ' + r.badgeClass);
+    var html =
+      '<span class="pcw-badge' + badgeCls + '"><span class="dot"></span>' + r.badgeText + '</span>' +
+      '<div class="pcw-result-title display">' + r.title + '</div>' +
+      '<div class="pcw-result-body">' + r.body + '</div>' +
+      '<div class="pcw-fee-note">' + r.fee + '</div>' +
+      '<div class="pcw-ctas">' +
+        '<a class="pcw-cta-primary' + (r.primary.danger ? ' danger' : '') + '" href="' + r.primary.href + '" target="_blank" rel="noopener" id="pcwPrimaryBtn">' + r.primary.label + '</a>' +
+        (r.secondary ? '<a class="pcw-cta-secondary" href="' + r.secondary.href + '" ' + (r.secondary.onClick ? '' : 'target="_blank" rel="noopener"') + ' id="pcwSecondaryBtn">' + r.secondary.label + '</a>' : '') +
+      '</div>';
+    screen(html);
+    if (r.secondary && r.secondary.onClick){
+      document.getElementById('pcwSecondaryBtn').addEventListener('click', function(e){
+        e.preventDefault();
+        r.secondary.onClick();
+      });
+    }
+  }
+
+  function render(step, ctx){
+    ctx = ctx || {};
+    if (step === 'start') stepStart();
+    else if (step === 'q2') stepQ2(ctx);
+    else if (step === 'q3') stepQ3(ctx);
+    else if (step === 'qualify') stepQualify(ctx);
+    else if (step === 'result') stepResult(ctx);
+  }
+
+  document.getElementById('pcwRestart').addEventListener('click', function(){
+    history = [];
+    answers = {};
+    go('start', {});
+  });
+
+  go('start', {});
+})();
+</script>
+
+</body>
+</html>
